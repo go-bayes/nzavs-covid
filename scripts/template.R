@@ -25,6 +25,9 @@ source(pull_path_funs)
 # # # read data
 dff<- readRDS(pull_path)
 
+str(dff)
+
+dff<- as.data.frame(dff)
 
 # df %>%
 #   filter(Wave == 2020 &  YearMeasured == 1) %>%
@@ -109,10 +112,11 @@ tab_in <- dff %>%
   dplyr::mutate(Euro = if_else(EthCat == 1, 1, 0)) %>%
   dplyr::mutate(Male = ifelse(GendAll == 1, 1, 0)) %>%
   dplyr::filter((Wave == 2018  & YearMeasured  == 1) |
-                  (Wave == 2019  &
-                     YearMeasured  == 1) |
-                  (Wave == 2020))  %>% # Eligibility criteria
-  dplyr::filter(YearMeasured  != -1) %>% # remove people who passed away
+                  (Wave == 2019  & YearMeasured  == 1) |
+                  (Wave == 2020 & YearMeasured  != -1) |
+                  (Wave == 2021 & YearMeasured  != -1)
+  )  %>% # Eligibility criteria
+  #dplyr::filter(YearMeasured  != -1) %>% # remove people who passed away
   # dplyr::filter(Id != 9630) %>% # problematic for income
   group_by(Id) %>%
   dplyr::mutate(org2018 =  ifelse(Wave == 2018 &
