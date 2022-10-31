@@ -5,6 +5,9 @@
 # Session Data files
 .RData
 
+# why bother
+.DS_Store
+
 # User-specific files
 .Ruserdata
 
@@ -34,3 +37,15 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+
+
+
+/.quarto/
+
+
+# data_raw
+data/*
+docs/*
+mods/*
+figs/*
+#scripts/*
