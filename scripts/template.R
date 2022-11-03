@@ -25,17 +25,13 @@ source(pull_path_funs)
 # # # read data
 dff<- readRDS(pull_path)
 
-str(dff)
+dff$Wave
 
-dff<- as.data.frame(dff)
+dff %>%
+  dplyr::filter(Wave == 2021 &  YearMeasured == 1) |>
+  n_distinct("Id")  # 33944
 
-# df %>%
-#   filter(Wave == 2020 &  YearMeasured == 1) %>%
-#   n_distinct("Id")
 
-# # read libraries in
-# source(here::here("scripts", "libs.R"))
-# source(here::here("scripts", "funs.R"))
 
 #dat$COVID19.Timeline
 # bels:
@@ -103,9 +99,7 @@ dff<- as.data.frame(dff)
 # set digits = 3
 options(scipen=999)
 
-#libraries and functions
-# source(here::here("scripts", "libs.R"))
-# source(here::here("scripts", "funs.R"))
+
 
 # table for participant N
 tab_in <- dff %>%
@@ -114,11 +108,11 @@ tab_in <- dff %>%
   dplyr::filter((Wave == 2018  & YearMeasured  == 1) |
                   (Wave == 2019  & YearMeasured  == 1) |
                   (Wave == 2020 & YearMeasured  != -1) |
-                  (Wave == 2021 & YearMeasured  != -1)
+                  (Wave == 2021 )
   )  %>% # Eligibility criteria
   #dplyr::filter(YearMeasured  != -1) %>% # remove people who passed away
   # dplyr::filter(Id != 9630) %>% # problematic for income
-  group_by(Id) %>%
+  group_by(Id)%>%
   dplyr::mutate(org2018 =  ifelse(Wave == 2018 &
                                     YearMeasured == 1, 1, 0)) %>%  # creating an indicator for the first wave
   dplyr::mutate(hold18 = mean(org2018, na.rm = TRUE)) %>%  # Hack
@@ -126,7 +120,7 @@ tab_in <- dff %>%
   dplyr::mutate(org2019 = ifelse(Wave == 2019 &
                                    YearMeasured == 1, 1, 0)) %>%  # creating an indicator for the first wave
   dplyr::mutate(hold19 = mean(org2019, na.rm = TRUE)) %>%  # Hack0
-  dplyr::filter(hold19 > 0) %>% # hack to enable repeat of baseline in 201
+  dplyr::filter(hold19 > 0) %>% # hack to enable repeat of baseline in 2011
   ungroup() %>%
   droplevels() %>%
   arrange(Id, Wave)
@@ -135,9 +129,9 @@ tab_in <- dff %>%
 length(unique(tab_in$Id)) # 34783
 
 # increasing rate
-dat%>%
+tab_in%>%
   group_by(Wave) %>%
-  summarise(mean(HLTH.Disability, na.rm = TRUE))
+  summarise(mean(Relid, na.rm = TRUE))
 
 # Do you have a health condition or disability that limits you, and that has lasted for 6+ months?
 

@@ -48,7 +48,11 @@ cvd_vars = c(
   "COVID.ComplianceAllMoHGuidelines",
   "COVID.BeenTested",
   "COVID.RequestTest",
-  "COVID.DeclineReq"
+  "COVID.DeclineReq",
+  "COVID.Vaccinated",
+  "COVID.VaccinatedIntend",
+  "COVID.VaccinationSafe",
+  "COVID.VaccinatedRefusal"
 
 )
 cvd_vars
@@ -56,40 +60,115 @@ cvd_vars
 dat <- dff |>
   dplyr::filter((Wave == "2018" & YearMeasured==1)|
            (Wave == "2019" & YearMeasured==1)|
-           Wave == "2020" & YearMeasured != -1) |>
+           (Wave == "2020" & YearMeasured != -1)|
+          (Wave == "2021"))  |>
   dplyr::select(c(all_of(cvd_vars), Wave, YearMeasured, TSCORE))
 
-dat2 <- dat |>
-  dplyr::filter(Wave == 2020 & YearMeasured ==1)
 
 
 out2 <- paste0(cvd_vars,
       collapse = "+" )
 out2<- noquote(out2)
+out2
 
-table1::table1( ~ COVID19.Timeline+COVID.RiskCatching+COVID.Rumination+COVID.ConfidentRecovery+COVID.RisksExaggerated+COVID.CreatedLab+COVID.InfoSourceGovt+COVID.InfoSourceNewsMedia+COVID.InfoSourceSocialMedia+COVID.SatGovtResponse+COVID.TrustGovtResponse+COVID.ComplianceTesting+COVID.ComplianceVaccinate+COVID.ComplianceMask+COVID.ComplianceIsolateHome+COVID.ComplianceContactTrace+COVID.ComplianceAllMoHGuidelines+COVID.BeenTested+COVID.RequestTest+COVID.DeclineReq, data = dat2)
+dat <- dat |>
+ dplyr::filter(Wave == 2020 | Wave == 2021)
 
-skimr::skim(dat2)
+table1::table1( ~ COVID.RisksExaggerated+COVID.CreatedLab+COVID.SatGovtResponse+COVID.TrustGovtResponse+COVID.Vaccinated+COVID.VaccinatedIntend+COVID.VaccinationSafe|Wave, data = dat, overall =FALSE)
 
-dat3<- dff%>%
-#  filter(YearMeasured==1) |>
-  select(Id, Wave, Age) |>
-  mutate(Wave = as.numeric(Wave)) |>
-  droplevels() |>
-  tibble()
-dat3
+skimr::skim(dat)
 
-dat3$Employed
 
-dat3 |> spread( key = "Wave", value = "Age")
-conflicts()
 
-out3 <- dat3 %>%
-  tidyr::pivot_wider(names_from = "Wave", value_from = "Age", names_glue = "{variable}_{.value}")
-conflicted::conflicted()
-conflicts()
-matches
-rlang::last_error()
+
+dt_temp <- dat |> select(Wave,
+                         COVID.RisksExaggerated,
+                         COVID.CreatedLab,
+                         COVID.SatGovtResponse,
+                         COVID.TrustGovtResponse
+                        # COVID.Vaccinated,
+                        # COVID.VaccinatedIntend,
+                        # COVID.VaccinationSafe
+                        )
+
+
+
+dt_long <- pivot_longer(dt_temp,
+                        cols = -c("Wave"),
+                        names_prefix = "COVID.",
+                        values_to = "Values",
+                        names_to = "Target"
+) |> drop_na()
+
+
+dev.off()
+ggplot(dt_long, aes(x=Target, y=Values, color=Target)) +
+  geom_violin() +  coord_flip() +  scale_fill_brewer(palette="RdBu") + theme_minimal()
+
+#notch = TRUE, outlier.colour="red", outlier.shape=8,
+#outlier.size=4
+
+# https://ggplot2tutor.com/tutorials/summary_statistics
+
+dt_long |>
+  ggplot(aes(x = Target, y = Values, color=Target)) +
+  stat_summary(fun.data = "mean_cl_normal",
+               fun.args = list(
+                 conf.int = .99),
+               #  position = position_dodge(0.95),
+               size = .1) +
+  # stat_summary(fun = mean,
+  #              geom = "pointrange",
+  #              fun.min = function(x) mean(x) + sd(x),
+  #              fun.max = function(x) mean(x) - sd(x)) +
+  scale_y_continuous(limits = c(1,7)) +
+  coord_flip() +  scale_fill_viridis_d() + theme_minimal()
+
+
+
+
+cov_values <- dt_long|>
+  dplyr::mutate(Target = forcats::fct_reorder(Target, desc(Values))) |>
+  ggplot2::ggplot(aes(Target, Values, fill = Target)) +
+  labs(title = "Covid Attitudes/Behaviours NZ 2021 (N = 33,000)") +
+  geom_violin(size =.05 ) +  scale_fill_viridis_d() +
+  facet_grid (.~ Wave, scales = "free_x", space = "free_x") +
+  theme(legend.position = "none")
+  cov_values
+
+  dev.off()
+
+
+  cov_values <- dt_long|>
+    dplyr::mutate(Target = forcats::fct_reorder(Target, desc(Values))) |>
+    ggplot2::ggplot(aes(Target, Values, fill = Target)) +
+    labs(title = "Covid Attitudes NZ 2020/21 to 2021/22 (N = 33,000)") +
+    geom_boxplot(size =.05, notch=T ) +  scale_fill_viridis_d() +
+    facet_grid (.~ Wave, scales = "free_x", space = "free_x")+
+ # coord_flip() +
+    theme(legend.position = "none")
+
+cov_values
+ggsave(
+  cov_values,
+  path = here::here(here::here("figs", "teaching")),
+  width = 9,
+  height = 9,
+  units = "in",
+  filename = "env_values.jpg",
+  device = 'jpeg',
+  limitsize = FALSE,
+  dpi = 1000
+)
+
+
+dt_long
+
+
+
+
+
+
 # df %>%
 #   filter(Wave == 2020 &  YearMeasured == 1) %>%
 #   n_distinct("Id")
