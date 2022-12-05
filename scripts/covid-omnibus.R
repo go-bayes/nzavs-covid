@@ -8,27 +8,70 @@ options(scipen = 999)
 
 library(fs)
 # import libraries (jb)
+
+options(scipen = 999)
+#libraries
+source("https://raw.githubusercontent.com/go-bayes/templates/main/functions/libs2.R")
+
+# read functions
+source("https://raw.githubusercontent.com/go-bayes/templates/main/functions/funs.R")
+
+# for saving models (bulbulia only - use own paths for simulated data)
+push_mods <-
+  fs::path_expand("~/The\ Virtues\ Project\ Dropbox/outcomewide/attacks/mods")
+push_figs <-
+  fs::path_expand("~/The\ Virtues\ Project\ Dropbox/outcomewide/attacks/figs")
+
+# install.packages("arrow", repos = c(arrow = "https://nightlies.apache.org/arrow/r", getOption("repos")))
+# read data (again bulbulia only) If replicating use the jittered data in the data folder
 pull_path <-
   fs::path_expand(
-    "~/The\ Virtues\ Project\ Dropbox/Joseph\ Bulbulia/00Bulbulia\ Pubs/2021/DATA/ldf.5"
+    "/Users/joseph/The\ Virtues\ Project\ Dropbox/Joseph\ Bulbulia/00Bulbulia\ Pubs/2021/DATA/time13"
   )
-# import functions
-pull_path_funs  <-
-  fs::path_expand("~/The\ Virtues\ Project\ Dropbox/scripts/funs.R")
-pull_path_libs  <-
-  fs::path_expand("~/The\ Virtues\ Project\ Dropbox/scripts/libs.R")
 
-# #libraries
-source(pull_path_libs)
+pull_path
+#arrow::write_parquet(time13, (here::here("data", "time13")))
+# wow this is fast
+#time13 <- read_parquet( (here::here("data", "time13")))
 
-# #  functions
-source(pull_path_funs)
-
-# # # read data
-dff<- readRDS(pull_path)
+dff <- arrow::read_parquet(pull_path)
 
 
-# inspect covid vars
+# select data
+dt <- dff |>
+  dplyr::filter((Wave == "2020" & YearMeasured == 1) |
+                  (Wave == "2021"  & YearMeasured == 1)) |>
+  dplyr::filter(YearMeasured  != -1) %>% # remove people who passed away
+  group_by(Id) |>  # only those who were in 2020
+  dplyr::mutate(org2020 =  ifelse(Wave == 2020 &
+                                    YearMeasured == 1, 1, 0)) %>%  # creating an indicator for the first wave
+  dplyr::mutate(hold20 = mean(org2020, na.rm = TRUE)) %>%  # Hack
+  dplyr::filter(hold20 > 0) %>% # hack to enable repeat of baseline
+  ungroup() %>%
+  droplevels() %>%
+  dplyr::mutate(Euro = if_else(EthCat == 1, 1, 0),
+                SexualOrientation = as.factor(if_else(
+                  SexualOrientationL1 == 1,
+                  "Heterosexual",
+                  if_else(SexualOrientationL1 ==
+                            2, "Homosexual", "OtherSexuality")
+                ))) %>%
+  dplyr::mutate(Gender3 = as.factor(ifelse(
+    GendAll == 0,
+    "Female",
+    if_else(GendAll == 1, "Male", "GenderDiverse")
+  ))) %>%
+  mutate(wave = as.numeric(Wave) - 1) |>
+  arrange(Id, Wave)
+
+levels(dt$Wave) <- c("Time12", "Time13")
+
+
+N <- length(unique(dt$Id))
+
+# below not run
+
+# inspect
 cvd_vars = c(
   "COVID19.Timeline",
   "COVID.RiskCatching",
@@ -54,57 +97,58 @@ cvd_vars = c(
   "COVID.VaccinatedIntend",
   "COVID.VaccinationSafe",
   "COVID.VaccinatedRefusal"
-
 )
-cvd_vars
 
+#
 dat <- dff |>
-  dplyr::filter((Wave == "2018" & YearMeasured==1)|
-           (Wave == "2019" & YearMeasured==1)|
-           (Wave == "2020" & YearMeasured != -1)|
-          (Wave == "2021"))  |>
-  dplyr::select(c(all_of(cvd_vars), Wave, YearMeasured, TSCORE))
+  dplyr::filter((Wave == "2018" & YearMeasured == 1) |
+                  (Wave == "2019" & YearMeasured == 1) |
+                  (Wave == "2020" & YearMeasured != -1) |
+                  (Wave == "2021" & YearMeasured != -1) )
+  )  |>
+  dplyr::select(c(all_of(cvd_vars), Wave, Time, YearMeasured, TSCORE))
+
+#
+# out2 <- paste0(cvd_vars,
+#       collapse = "+" )
+# out2<- noquote(out2)
+# out2
+#
+# dat <- dat |>
+#  dplyr::filter(Wave == 2020 | Wave == 2021)
+#
+# table1::table1( ~ COVID.RisksExaggerated+COVID.CreatedLab+COVID.SatGovtResponse+COVID.TrustGovtResponse+COVID.Vaccinated+COVID.VaccinatedIntend+COVID.VaccinationSafe|Wave, data = dat, overall =FALSE)
+#
+# skimr::skim(dat)
+#
+#
+
+
+dt_temp <- dat |> select(
+  Wave,
+  COVID.RisksExaggerated,
+  COVID.CreatedLab,
+  COVID.SatGovtResponse,
+  COVID.TrustGovtResponse
+  # COVID.Vaccinated,
+  # COVID.VaccinatedIntend,
+  # COVID.VaccinationSafe
+)
 
 
 
-out2 <- paste0(cvd_vars,
-      collapse = "+" )
-out2<- noquote(out2)
-out2
-
-dat <- dat |>
- dplyr::filter(Wave == 2020 | Wave == 2021)
-
-table1::table1( ~ COVID.RisksExaggerated+COVID.CreatedLab+COVID.SatGovtResponse+COVID.TrustGovtResponse+COVID.Vaccinated+COVID.VaccinatedIntend+COVID.VaccinationSafe|Wave, data = dat, overall =FALSE)
-
-skimr::skim(dat)
-
-
-
-
-dt_temp <- dat |> select(Wave,
-                         COVID.RisksExaggerated,
-                         COVID.CreatedLab,
-                         COVID.SatGovtResponse,
-                         COVID.TrustGovtResponse
-                        # COVID.Vaccinated,
-                        # COVID.VaccinatedIntend,
-                        # COVID.VaccinationSafe
-                        )
-
-
-
-dt_long <- pivot_longer(dt_temp,
-                        cols = -c("Wave"),
-                        names_prefix = "COVID.",
-                        values_to = "Values",
-                        names_to = "Target"
+dt_long <- pivot_longer(
+  dt_temp,
+  cols = -c("Wave"),
+  names_prefix = "COVID.",
+  values_to = "Values",
+  names_to = "Target"
 ) |> drop_na()
 
 
 dev.off()
-ggplot(dt_long, aes(x=Target, y=Values, color=Target)) +
-  geom_violin() +  coord_flip() +  scale_fill_brewer(palette="RdBu") + theme_minimal()
+ggplot(dt_long, aes(x = Target, y = Values, color = Target)) +
+  geom_violin() +  coord_flip() +  scale_fill_brewer(palette = "RdBu") + theme_minimal()
 
 #notch = TRUE, outlier.colour="red", outlier.shape=8,
 #outlier.size=4
@@ -112,55 +156,56 @@ ggplot(dt_long, aes(x=Target, y=Values, color=Target)) +
 # https://ggplot2tutor.com/tutorials/summary_statistics
 
 dt_long |>
-  ggplot(aes(x = Target, y = Values, color=Target)) +
-  stat_summary(fun.data = "mean_cl_normal",
-               fun.args = list(
-                 conf.int = .99),
-               #  position = position_dodge(0.95),
-               size = .1) +
+  ggplot(aes(x = Target, y = Values, color = Target)) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = .99),
+    #  position = position_dodge(0.95),
+    size = .1
+  ) +
   # stat_summary(fun = mean,
   #              geom = "pointrange",
   #              fun.min = function(x) mean(x) + sd(x),
   #              fun.max = function(x) mean(x) - sd(x)) +
-  scale_y_continuous(limits = c(1,7)) +
+  scale_y_continuous(limits = c(1, 7)) +
   coord_flip() +  scale_fill_viridis_d() + theme_minimal()
 
 
 
 
-cov_values <- dt_long|>
+cov_values <- dt_long |>
   dplyr::mutate(Target = forcats::fct_reorder(Target, desc(Values))) |>
   ggplot2::ggplot(aes(Target, Values, fill = Target)) +
   labs(title = "Covid Attitudes/Behaviours NZ 2021 (N = 33,000)") +
-  geom_violin(size =.05 ) +  scale_fill_viridis_d() +
-  facet_grid (.~ Wave, scales = "free_x", space = "free_x") +
+  geom_violin(size = .05) +  scale_fill_viridis_d() +
+  facet_grid (. ~ Wave, scales = "free_x", space = "free_x") +
   theme(legend.position = "none")
-  cov_values
+cov_values
 
-  dev.off()
+dev.off()
 
 
-  cov_values <- dt_long|>
-    dplyr::mutate(Target = forcats::fct_reorder(Target, desc(Values))) |>
-    ggplot2::ggplot(aes(Target, Values, fill = Target)) +
-    labs(title = "Covid Attitudes NZ 2020/21 to 2021/22 (N = 33,000)") +
-    geom_boxplot(size =.05, notch=T ) +  scale_fill_viridis_d() +
-    facet_grid (.~ Wave, scales = "free_x", space = "free_x")+
- # coord_flip() +
-    theme(legend.position = "none")
+cov_values <- dt_long |>
+  dplyr::mutate(Target = forcats::fct_reorder(Target, desc(Values))) |>
+  ggplot2::ggplot(aes(Target, Values, fill = Target)) +
+  labs(title = "Covid Attitudes NZ 2020/21 to 2021/22 (N = 33,000)") +
+  geom_boxplot(size = .05, notch = T) +  scale_fill_viridis_d() +
+  facet_grid (. ~ Wave, scales = "free_x", space = "free_x") +
+  # coord_flip() +
+  theme(legend.position = "none")
 
 cov_values
-ggsave(
-  cov_values,
-  path = here::here(here::here("figs", "teaching")),
-  width = 9,
-  height = 9,
-  units = "in",
-  filename = "env_values.jpg",
-  device = 'jpeg',
-  limitsize = FALSE,
-  dpi = 1000
-)
+# ggsave(
+#   cov_values,
+#   path = here::here(here::here("figs", "teaching")),
+#   width = 9,
+#   height = 9,
+#   units = "in",
+#   filename = "env_values.jpg",
+#   device = 'jpeg',
+#   limitsize = FALSE,
+#   dpi = 1000
+# )
 
 
 dt_long
@@ -215,19 +260,34 @@ dt_long
 # 18        Marlborough Region
 # 99       Area Outside Region
 
-#  This isn't sensible
-# dat1 <- dat %>%
-#   dplyr::mutate(NZSEI06_lead1 = lead(NZSEI06, n = 1),
-#                 KESSLER6_lead1 = lead(KESSLER6, n = 1),
-#                 KESSLER6_lag1 = dplyr::lag(KESSLER6),
-#                 NZSEI06_lag1 =  dplyr::lag(NZSEI06),
-#                 Employed_lead1 = lead(Employed, n = 1),
-#                 Employed_lag1 = dplyr::lag(Employed, n = 1))|>
-#   dplyr::filter(Wave == 2019 & YearMeasured==1) |>
-#   dplyr::mutate(cum_lockdowns_baseline = if_else(COVID19.Timeline < 1.2, 0,
-#                                  if_else(COVID19.Timeline >  1:2 & COVID19.Timeline  < 2, 2,
-#                                          ifelse(COVID19.Timeline > 2 & REGC_2018 == 2  | COVID19.Timeline > 2 & REGC_2018 == 1, 4, 3))))
-#
+
+
+# only pre wave
+dat1 <- dtt %>%
+  dplyr::mutate(
+    NZSEI06_lead1 = lead(NZSEI06, n = 1),
+    KESSLER6_lead1 = lead(KESSLER6, n = 1),
+    KESSLER6_lag1 = dplyr::lag(KESSLER6),
+    NZSEI06_lag1 =  dplyr::lag(NZSEI06),
+    Employed_lead1 = lead(Employed, n = 1),
+    Employed_lag1 = dplyr::lag(Employed, n = 1)
+  ) |>
+  dplyr::filter(Wave == 2019 & YearMeasured == 1) |>
+  dplyr::mutate(cum_lockdowns_baseline = if_else(
+    COVID19.Timeline < 1.2,
+    0,
+    if_else(
+      COVID19.Timeline >  1:2 & COVID19.Timeline  < 2,
+      2,
+      ifelse(
+        COVID19.Timeline > 2 &
+          REGC_2022 == 2  | COVID19.Timeline > 2 & REGC_2022 == 1,
+        4,
+        3
+      )
+    )
+  ))
+
 # summary(test<- lm(KESSLER6~ cum_lockdowns_baseline + KESSLER6_lag1, data = dat1))
 # summary(test<- lm(NZSEI06_lead1 ~ cum_lockdowns_baseline + NZSEI06_lag1, data = dat1))
 # summary(test<- glm(Employed_lead1 ~ cum_lockdowns_baseline + Employed_lag1, family = "binomial" ,  data = dat1))
@@ -242,7 +302,7 @@ dt_long
 
 # Template
 # set digits = 3
-options(scipen=999)
+options(scipen = 999)
 
 #libraries and functions
 # source(here::here("scripts", "libs.R"))
@@ -275,13 +335,132 @@ tab_in <- dff %>%
 length(unique(tab_in$Id)) # 34783
 
 # increasing rate
-dat%>%
+dat %>%
   group_by(Wave) %>%
-  summarise(mean(HLTH.Disability, na.rm = TRUE))
+  summarise(mean(Warm.Muslims, na.rm = TRUE))
+
+
+# dat %>%
+#   filter(Wave == 2019) %>%
+#   dplyr::mutate(cum_lockdowns_time11 = if_else(
+#     COVID19.Timeline < 1.2,
+#     0,
+#     if_else(
+#       COVID19.Timeline >  1.2 & COVID19.Timeline  < 2,
+#       2,
+#       ifelse(
+#         COVID19.Timeline > 2 &
+#           REGC_2022 == 2  | COVID19.Timeline > 2 & REGC_2022 == 1,
+#         4,
+#         3
+#       )
+#     )
+#   )) |>
+#   group_by(cum_lockdowns_time11) |>
+#   summarise(n = n(), mean(Warm.Muslims, na.rm = TRUE))
+
+
+sub_dat <- dat %>%
+  filter(Wave == 2019) %>%
+  dplyr::mutate(cum_lockdowns_time11 = if_else(
+    COVID19.Timeline < 1.2,
+    0,
+    if_else(
+      COVID19.Timeline >  1.2 & COVID19.Timeline  < 2,
+      2,
+      ifelse(
+        COVID19.Timeline > 2 &
+          REGC_2022 == 2  | COVID19.Timeline > 2 & REGC_2022 == 1,
+        4,
+        3
+      )
+    )
+  )) |>
+  mutate(pre_post = if_else (  COVID19.Timeline >  1.1, 1, 0 )) |>
+  select(Warm.Muslims, cum_lockdowns_time11, REGC_2022, Id , COVID19.Timeline, pre_post) |>
+  drop_na()
+
+
+length(unique(sub_dat$Id))
+lm(data = sub_dat, Warm.Muslims ~ cum_lockdowns_time11 + as.factor(REGC_2022)) |>
+  model_parameters()
+
+
+lm(data = sub_dat, Warm.Muslims ~ cum_lockdowns_time11 ) |>
+  model_parameters()
+
+
+lm(data = sub_dat, Warm.Muslims ~ pre_post ) |>
+  model_parameters()
+
+
+
+# pre_vals ----------------------------------------------------------------
+
+sub_dat2 <- tab_in |>
+  mutate(lag_warm_muslims = dplyr::lag(Warm.Muslims, n = 1),
+         lag_pol_orient = dplyr::lag(Pol.Orient, n = 1)) |>
+  filter(Wave == 2019) %>%
+  dplyr::mutate(cum_lockdowns_time11 = if_else(
+    COVID19.Timeline < 1.2,
+    0,
+    if_else(
+      COVID19.Timeline >  1.2 & COVID19.Timeline  < 2,
+      2,
+      ifelse(
+        COVID19.Timeline > 2 &
+          REGC_2022 == 2  | COVID19.Timeline > 2 & REGC_2022 == 1,
+        4,
+        3
+      )
+    )
+  )) |>
+  mutate(pre_post = if_else (  COVID19.Timeline >  1.1, 1, 0 )) |>
+  select(lag_warm_muslims, Warm.Muslims, cum_lockdowns_time11, REGC_2022, Id , COVID19.Timeline, pre_post) |>
+  droplevels()
+
+length(unique(sub_dat2$Id))
+lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + as.factor(REGC_2022) + lag_warm_muslims) |>
+  model_parameters()
+
+
+lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + pre_post * lag_warm_muslims) |>
+  model_parameters()
+
+
+
+lm(data = sub_dat, Warm.Muslims ~ pre_post ) |>
+  model_parameters()
+
+
+
+
+
+
+# other analysis ----------------------------------------------------------
+
+
+dat %>%
+  group_by(Wave) %>%
+  summarise(mean(Warm.Overweight, na.rm = TRUE))
+
+dat %>%
+  group_by(Wave) %>%
+  summarise(mean(Warm.Elderly, na.rm = TRUE))
+
+dat %>%
+  group_by(Wave) %>%
+  summarise(mean(Warm.NZEuro, na.rm = TRUE))
+
+dat %>%
+  group_by(Wave) %>%
+  summarise(mean(Warm.Immigrants, na.rm = TRUE))
+
+
 
 # Do you have a health condition or disability that limits you, and that has lasted for 6+ months?
 
-## select vars
+## select varshttps://www.rolex.org/science
 df_cr <- tab_in %>%
   # dplyr::filter(Id != 9630) %>% # problematic
   select(
@@ -489,31 +668,32 @@ df_cr <- tab_in %>%
   # dplyr::filter(income_log_lead1 > income_log) %>%
   dplyr::filter(!is.na(Church)) %>%
   dplyr::filter(!is.na(Church_lead1)) %>%
-  dplyr::mutate(Religious = as.numeric(Religious)-1) |>
+  dplyr::mutate(Religious = as.numeric(Religious) - 1) |>
   dplyr::filter(Religious == 1) %>%
   #dplyr::filter(!is.na(Standard.Living) )%>%
   # dplyr::filter(!is.na(Standard.Living_lead1) )%>%
   #  dplyr::filter(semiretired_lead1 != 1) %>%  #needed for the intervention
-  dplyr::select(-c(
-    Religion.Church2,
-    # EthCat,
-    Religious,
-    HoursCharity,
-    Respect.Self_lead2,
-    Household.INC,
-    #  org2018,
-    #  not_euro,
-    #  not_euro_lead2,
-    # hold18,
-    #   Euro,
-    Emp.WorkLifeBalance,
-    YearMeasured,
-    #HLTH.Disability_lead1,
-    # org2019,
-    # hold19,
-    # retired,
-    # semiretired,
-  )
+  dplyr::select(
+    -c(
+      Religion.Church2,
+      # EthCat,
+      Religious,
+      HoursCharity,
+      Respect.Self_lead2,
+      Household.INC,
+      #  org2018,
+      #  not_euro,
+      #  not_euro_lead2,
+      # hold18,
+      #   Euro,
+      Emp.WorkLifeBalance,
+      YearMeasured,
+      #HLTH.Disability_lead1,
+      # org2019,
+      # hold19,
+      # retired,
+      # semiretired,
+    )
   ) %>%
   #  dplyr::mutate(across(!c(Id,Wave), ~ scale(.x)))%>%  # standarise vars for easy computing-- do this after imputation
   arrange(Id, Wave) %>%
@@ -569,7 +749,7 @@ skimr::skim(cc_l)
 # create variables in z score
 cc_l2 <- cc_l %>%
   dplyr::mutate(EthCat = as.factor(EthCat)) |>
-  dplyr::mutate(Volunteers_lead2 = if_else(HoursCharity_lead2 >0, 1, 0)) |>
+  dplyr::mutate(Volunteers_lead2 = if_else(HoursCharity_lead2 > 0, 1, 0)) |>
   dplyr::mutate(income_log = log(Household.INC + 1)) |>
   dplyr::mutate(income_log_lead2 = log(Household.INC_lead2 + 1)) |>
   # dplyr::mutate(newkids = ChildrenNum_lead2 - ChildrenNum) %>%
@@ -624,8 +804,8 @@ cc_l2 <- cc_l %>%
     )
   ) %>%
   dplyr::mutate(NZSEI13_10 =  NZSEI13 / 10) %>%
-  dplyr::mutate(NZSEI13_10 =  NZSEI13/10)%>%
-  dplyr::mutate(NZSEI13_lead2_10 =  as.integer(NZSEI13_lead2/10))%>%
+  dplyr::mutate(NZSEI13_10 =  NZSEI13 / 10) %>%
+  dplyr::mutate(NZSEI13_lead2_10 =  as.integer(NZSEI13_lead2 / 10)) %>%
   dplyr::mutate(id = as.factor(rep(1:N, 11))) |> # needed for g-comp
   dplyr::group_by(id) |> mutate(PWI = mean(
     c(
@@ -650,7 +830,9 @@ cc_l2 <- cc_l %>%
   select(-c(.imp_z, .id_z)) %>%
   dplyr::mutate(EthCat = as.factor(EthCat)) |>
   dplyr::mutate(Religion.CongregationSize_dunbar1 = as.factor(Religion.CongregationSize_dunbar1)) |>
-  dplyr::mutate(Religion.CongregationSize_lead1_dunbar1 = as.factor(Religion.CongregationSize_lead1_dunbar1))
+  dplyr::mutate(
+    Religion.CongregationSize_lead1_dunbar1 = as.factor(Religion.CongregationSize_lead1_dunbar1)
+  )
 
 # # Get data into shape
 cc_l2 <- cc_l2 %>% mutate_if(is.matrix, as.vector)
@@ -751,13 +933,13 @@ baselinevars = c(
 # ylim <- c(-.3,.3)
 # ylim7<- c(-.7,.7)
 # ylim <- c(-.5,.5)
-ylim8 = c(-.2,.75)
+ylim8 = c(-.2, .75)
 # data
 df <-  ccu
 # n imputations
 m = 10
-ylim_contrast <- c(.6,2.5)
-ylim_contrast_diff <- c(-6,2.5)
+ylim_contrast <- c(.6, 2.5)
+ylim_contrast_diff <- c(-6, 2.5)
 
 
 exp(5)
@@ -766,7 +948,7 @@ hist(ccf$Religion.CongregationSize_lead1_log)
 #How many times did you pray in the last week?
 X = "Religion.CongregationSize_lead1_log"
 xlab = "Log Religious Congregation Size"
-min= 0
+min = 0
 max = 7
 # baseline
 r = 0
@@ -786,8 +968,14 @@ delta = delta
 # functions ---------------------------------------------------------------
 
 ## Also use
-round( EValue::evalues.OLS( , se = , sd = 1, delta = 2, true = 0), 3)
-round( EValue::evalues.RR( , lo =  , hi =, true = 1), 4)
+round(EValue::evalues.OLS(
+  ,
+  se = ,
+  sd = 1,
+  delta = 2,
+  true = 0
+), 3)
+round(EValue::evalues.RR(, lo =  , hi = , true = 1), 4)
 
 # sd(df_a$Household.INC_lead1)
 # mean(mf$income_log_lead1)
@@ -825,30 +1013,59 @@ rm(out_ct)
 # fit regression model
 out_m <- out_f()
 # g-computation - contrasts
-out_ct <- pool_stglm_contrast_ratio(out_m, df = df, m = 10,  X = X, x = c, r= r)
+out_ct <-
+  pool_stglm_contrast_ratio(
+    out_m,
+    df = df,
+    m = 10,
+    X = X,
+    x = c,
+    r = r
+  )
 #table
-spirit_t<- out_ct %>%
+spirit_t <- out_ct %>%
   slice(1:8) |>
   tibble() |>
-  rename(Contrast = row,
-         Estimate = est,
-         std_error = se,
-         CI_hi = ui,
-         CI_lo = li) |>
+  rename(
+    Contrast = row,
+    Estimate = est,
+    std_error = se,
+    CI_hi = ui,
+    CI_lo = li
+  ) |>
   kbl(caption = main,
       digits = 3,
       "html") |>
   kable_styling() %>%
-  row_spec(c(6), bold = T, color = "white", background = "dodgerblue") |>
+  row_spec(c(6),
+           bold = T,
+           color = "white",
+           background = "dodgerblue") |>
   kable_minimal(full_width = F)
 spirit_t
-spirit_p<- ggplot_stglm(out_ct, ylim =c(.9,1.1), main, xlab, ylab, min = min, p=p, r= 1)
+spirit_p <-
+  ggplot_stglm(
+    out_ct,
+    ylim = c(.9, 1.1),
+    main,
+    xlab,
+    ylab,
+    min = min,
+    p = p,
+    r = 1
+  )
 spirit_p
 
-round( EValue::evalues.OLS( , se = , sd = 1, delta = delta, true = 0), 3)
+round(EValue::evalues.OLS(
+  ,
+  se = ,
+  sd = 1,
+  delta = delta,
+  true = 0
+), 3)
 
 
-round( EValue::evalues.RR( , lo =  , hi = , true = 1), 4) |>
+round(EValue::evalues.RR(, lo =  , hi = , true = 1), 4) |>
   kbl(caption = main,
       digits = 3,
       "html") |>
@@ -879,27 +1096,57 @@ rm(out_ct)
 # fit regression model
 out_m <- out_f()
 # g-computation - contrasts
-out_ct <- pool_stglm_contrast(out_m, df = df, m = 10,  X = X, x = c, r= r)
+out_ct <-
+  pool_stglm_contrast(
+    out_m,
+    df = df,
+    m = 10,
+    X = X,
+    x = c,
+    r = r
+  )
 #table
-church_t<-out_ct %>%
+church_t <- out_ct %>%
   slice(1:8) |>
   tibble() |>
-  rename(Contrast = row,
-         Estimate = est,
-         std_error = se,
-         CI_hi = ui,
-         CI_lo = li) |>
+  rename(
+    Contrast = row,
+    Estimate = est,
+    std_error = se,
+    CI_hi = ui,
+    CI_lo = li
+  ) |>
   kbl(caption = main,
       digits = 3,
       "html") |>
   kable_styling() %>%
-  row_spec(c(6), bold = T, color = "white", background = "dodgerblue") |>
+  row_spec(c(6),
+           bold = T,
+           color = "white",
+           background = "dodgerblue") |>
   kable_minimal(full_width = F)
 church_t
-church_p<- ggplot_stglm(out_ct, ylim = ylim8, main, xlab, ylab, min = min, p=p, r= 1)
+church_p <-
+  ggplot_stglm(
+    out_ct,
+    ylim = ylim8,
+    main,
+    xlab,
+    ylab,
+    min = min,
+    p = p,
+    r = 1
+  )
 church_p
-round( EValue::evalues.OLS( 0.537, se = 0.041, sd = 1, delta = delta, true = 0), 3)
-round( EValue::evalues.RR( , lo =  , hi =, true = 1), 4)
+round(EValue::evalues.OLS(
+  0.537,
+  se = 0.041,
+  sd = 1,
+  delta = delta,
+  true = 0
+),
+3)
+round(EValue::evalues.RR(, lo =  , hi = , true = 1), 4)
 
 
 
