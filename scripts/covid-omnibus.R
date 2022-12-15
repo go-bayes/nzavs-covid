@@ -30,9 +30,7 @@ pull_path <-
   )
 
 pull_path
-#arrow::write_parquet(time13, (here::here("data", "time13")))
-# wow this is fast
-#time13 <- read_parquet( (here::here("data", "time13")))
+
 
 dff <- arrow::read_parquet(pull_path)
 
@@ -69,6 +67,8 @@ levels(dt$Wave) <- c("Time12", "Time13")
 
 N <- length(unique(dt$Id))
 
+# Check
+N
 # below not run
 
 # inspect
@@ -382,14 +382,17 @@ sub_dat <- dat %>%
 
 
 length(unique(sub_dat$Id))
+
+# Cumulative locksdowns nothing
 lm(data = sub_dat, Warm.Muslims ~ cum_lockdowns_time11 + as.factor(REGC_2022)) |>
   model_parameters()
 
 
+# nothing
 lm(data = sub_dat, Warm.Muslims ~ cum_lockdowns_time11 ) |>
   model_parameters()
 
-
+# nothing
 lm(data = sub_dat, Warm.Muslims ~ pre_post ) |>
   model_parameters()
 
@@ -429,7 +432,7 @@ lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + pre_post * lag_warm_mu
 
 
 
-lm(data = sub_dat, Warm.Muslims ~ pre_post ) |>
+lm(data = sub_dat2, Warm.Muslims ~ pre_post  + lag_warm_muslims) |>
   model_parameters()
 
 
@@ -437,7 +440,7 @@ lm(data = sub_dat, Warm.Muslims ~ pre_post ) |>
 
 
 
-# other analysis ----------------------------------------------------------
+# other analysis  IGNORE BELOW ----------------------------------------------------------
 
 
 dat %>%
@@ -459,7 +462,7 @@ dat %>%
 
 
 # Do you have a health condition or disability that limits you, and that has lasted for 6+ months?
-
+dat$SWB.SoC01
 ## select varshttps://www.rolex.org/science
 df_cr <- tab_in %>%
   # dplyr::filter(Id != 9630) %>% # problematic
@@ -511,8 +514,8 @@ df_cr <- tab_in %>%
     lost_job,
     Male,
     NWI,
-    NZdep,
-    NZSEI13
+    NZDep2018,
+    NZSEI13,
     Parent,
     Partner,
     partnerlost_job,
@@ -616,8 +619,8 @@ df_cr <- tab_in %>%
       lost_job,
       Male,
       NWI,
-      NZdep,
-      NZSEI13
+      NZDep2018,
+      NZSEI13,
       Parent,
       Partner,
       partnerlost_job,
@@ -645,7 +648,7 @@ df_cr <- tab_in %>%
       Spiritual.Identification,
       Standard.Living,
       SUPPORT,
-      SWB.SoC01,
+      community,
       Urban,
       VENGEFUL.RUMIN,
       Your.Health,
