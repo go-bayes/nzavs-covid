@@ -34,6 +34,10 @@ pull_path
 
 dff <- arrow::read_parquet(pull_path)
 
+dff |>
+  filter(YearMeasured==1) |>
+  group_by(Wave) |>
+  count(n_distinct(Id))
 
 # select data
 dt <- dff |>
@@ -122,6 +126,7 @@ dat <- dff |>
 # skimr::skim(dat)
 #
 #
+table(dat$SampleFrame)
 
 
 dt_temp <- dat |> select(
@@ -401,8 +406,8 @@ lm(data = sub_dat, Warm.Muslims ~ pre_post ) |>
 # pre_vals ----------------------------------------------------------------
 
 sub_dat2 <- tab_in |>
-  mutate(lag_warm_muslims = dplyr::lag(Warm.Muslims, n = 1),
-         lag_pol_orient = dplyr::lag(Pol.Orient, n = 1)) |>
+  mutate(lag_warm_muslims_z = scale( dplyr::lag(Warm.Muslims, n = 1) ) ,
+         lag_pol_orient_z = scale( dplyr::lag(Pol.Orient, n = 1))) |>
   filter(Wave == 2019) %>%
   dplyr::mutate(cum_lockdowns_time11 = if_else(
     COVID19.Timeline < 1.2,
@@ -419,20 +424,21 @@ sub_dat2 <- tab_in |>
     )
   )) |>
   mutate(pre_post = if_else (  COVID19.Timeline >  1.1, 1, 0 )) |>
-  select(lag_warm_muslims, Warm.Muslims, cum_lockdowns_time11, REGC_2022, Id , COVID19.Timeline, pre_post) |>
+  select(lag_warm_muslims_z, Warm.Muslims, cum_lockdowns_time11, REGC_2022, Id , COVID19.Timeline, pre_post) |>
   droplevels()
 
 length(unique(sub_dat2$Id))
-lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + as.factor(REGC_2022) + lag_warm_muslims) |>
+
+lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + as.factor(REGC_2022) + lag_warm_muslims_z) |>
   model_parameters()
 
 
-lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + pre_post * lag_warm_muslims) |>
+lm(data = sub_dat2, Warm.Muslims ~ cum_lockdowns_time11 + pre_post + lag_warm_muslims_z) |>
   model_parameters()
 
 
 
-lm(data = sub_dat2, Warm.Muslims ~ pre_post  + lag_warm_muslims) |>
+lm(data = sub_dat2, Warm.Muslims ~ pre_post  + lag_warm_muslims_z) |>
   model_parameters()
 
 
